@@ -19,8 +19,13 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: '8.6'
 
     - name: Generate Release Keystore
       run: |
@@ -28,8 +33,7 @@ jobs:
 
     - name: Build Android Bundle (AAB) & APK
       run: |
-        chmod +x ./gradlew || true
-        gradle bundleRelease assembleRelease
+        gradle bundleRelease assembleRelease --stacktrace
 
     - name: Sign Android Bundle (.aab)
       run: |
@@ -40,9 +44,3 @@ jobs:
       with:
         name: WindowCraft-PlayStore-AAB
         path: app/build/outputs/bundle/release/app-release.aab
-
-    - name: Upload Testing APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: WindowCraft-Test-APK
-        path: app/build/outputs/apk/release/app-release-unsigned.apk
