@@ -1,0 +1,48 @@
+name: Build Android AAB and APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+
+    - name: Generate Release Keystore
+      run: |
+        keytool -genkey -v -keystore release.keystore -alias windowcraft -keyalg RSA -keysize 2048 -validity 10000 -storepass windowcraft123 -keypass windowcraft123 -dname "CN=WindowCraft, OU=Dev, O=WindowCraftPro, L=IN, S=IN, C=IN"
+
+    - name: Build Android Bundle (AAB) & APK
+      run: |
+        chmod +x ./gradlew || true
+        gradle bundleRelease assembleRelease
+
+    - name: Sign Android Bundle (.aab)
+      run: |
+        jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 -keystore release.keystore -storepass windowcraft123 -keypass windowcraft123 app/build/outputs/bundle/release/app-release.aab windowcraft
+
+    - name: Upload Play Store AAB Bundle
+      uses: actions/upload-artifact@v4
+      with:
+        name: WindowCraft-PlayStore-AAB
+        path: app/build/outputs/bundle/release/app-release.aab
+
+    - name: Upload Testing APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: WindowCraft-Test-APK
+        path: app/build/outputs/apk/release/app-release-unsigned.apk
