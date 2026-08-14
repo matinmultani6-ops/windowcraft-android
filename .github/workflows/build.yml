@@ -1,4 +1,4 @@
-name: Build Android AAB and APK
+name: Build Android AAB
 
 on:
   push:
@@ -27,16 +27,20 @@ jobs:
       with:
         gradle-version: '8.6'
 
-    - name: Generate Release Keystore
+    - name: Accept Licenses and Generate Local Config
+      run: |
+        yes | sdkmanager --licenses || true
+        echo "sdk.dir=$ANDROID_HOME" > local.properties
+        gradle wrapper --gradle-version 8.6
+
+    - name: Build Android Bundle (AAB)
+      run: |
+        chmod +x ./gradlew
+        ./gradlew bundleRelease --stacktrace
+
+    - name: Generate Keystore & Sign AAB
       run: |
         keytool -genkey -v -keystore release.keystore -alias windowcraft -keyalg RSA -keysize 2048 -validity 10000 -storepass windowcraft123 -keypass windowcraft123 -dname "CN=WindowCraft, OU=Dev, O=WindowCraftPro, L=IN, S=IN, C=IN"
-
-    - name: Build Android Bundle (AAB) & APK
-      run: |
-        gradle bundleRelease assembleRelease --stacktrace
-
-    - name: Sign Android Bundle (.aab)
-      run: |
         jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 -keystore release.keystore -storepass windowcraft123 -keypass windowcraft123 app/build/outputs/bundle/release/app-release.aab windowcraft
 
     - name: Upload Play Store AAB Bundle
