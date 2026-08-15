@@ -27,10 +27,48 @@ jobs:
       with:
         gradle-version: '8.6'
 
-    - name: Build Android Bundle (AAB)
+    - name: Ensure Project Structure & Config Files
       run: |
         echo "sdk.dir=$ANDROID_HOME" > local.properties
-        gradle bundleRelease --stacktrace
+
+        # Ensure settings.gradle exists with Google Repositories
+        cat << 'EOF' > settings.gradle
+        pluginManagement {
+            repositories {
+                google()
+                mavenCentral()
+                gradlePluginPortal()
+            }
+        }
+        dependencyResolutionManagement {
+            repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+            repositories {
+                google()
+                mavenCentral()
+            }
+        }
+        rootProject.name = "WindowCraft Pro"
+        include ':app'
+        EOF
+
+        # Ensure root build.gradle exists
+        cat << 'EOF' > build.gradle
+        plugins {
+            id 'com.android.application' version '8.4.0' apply false
+        }
+        EOF
+
+        # Ensure Proguard file exists
+        mkdir -p app
+        touch app/proguard-rules.pro
+
+        # Create executable Gradle wrapper
+        gradle wrapper --gradle-version 8.6
+        chmod +x gradlew
+
+    - name: Build Android Bundle (AAB)
+      run: |
+        ./gradlew :app:bundleRelease --no-daemon --stacktrace
 
     - name: Sign AAB Bundle & Export Certificate
       run: |
@@ -42,7 +80,7 @@ jobs:
         # Export public certificate for Play Console upload key reset
         keytool -export -rfc -keystore release.keystore -alias windowcraft -file upload_certificate.pem -storepass windowcraft123
 
-    - name: Upload Play Store AAB Bundle & Certificate
+    - name: Upload Play Store AAB Package
       uses: actions/upload-artifact@v4
       with:
         name: WindowCraft-PlayStore-Package
