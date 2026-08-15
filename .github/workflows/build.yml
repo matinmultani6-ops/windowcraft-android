@@ -27,24 +27,25 @@ jobs:
       with:
         gradle-version: '8.6'
 
-    - name: Accept Licenses and Generate Local Config
-      run: |
-        yes | sdkmanager --licenses || true
-        echo "sdk.dir=$ANDROID_HOME" > local.properties
-        gradle wrapper --gradle-version 8.6
-
     - name: Build Android Bundle (AAB)
       run: |
-        chmod +x ./gradlew
-        ./gradlew bundleRelease --stacktrace
+        echo "sdk.dir=$ANDROID_HOME" > local.properties
+        gradle bundleRelease --stacktrace
 
-    - name: Generate Keystore & Sign AAB
+    - name: Sign AAB Bundle & Export Certificate
       run: |
-        keytool -genkey -v -keystore release.keystore -alias windowcraft -keyalg RSA -keysize 2048 -validity 10000 -storepass windowcraft123 -keypass windowcraft123 -dname "CN=WindowCraft, OU=Dev, O=WindowCraftPro, L=IN, S=IN, C=IN"
+        if [ ! -f release.keystore ]; then
+          keytool -genkey -v -keystore release.keystore -alias windowcraft -keyalg RSA -keysize 2048 -validity 10000 -storepass windowcraft123 -keypass windowcraft123 -dname "CN=WindowCraft, OU=Dev, O=WindowCraftPro, L=IN, S=IN, C=IN"
+        fi
         jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA-256 -keystore release.keystore -storepass windowcraft123 -keypass windowcraft123 app/build/outputs/bundle/release/app-release.aab windowcraft
+        
+        # Export public certificate for Play Console upload key reset
+        keytool -export -rfc -keystore release.keystore -alias windowcraft -file upload_certificate.pem -storepass windowcraft123
 
-    - name: Upload Play Store AAB Bundle
+    - name: Upload Play Store AAB Bundle & Certificate
       uses: actions/upload-artifact@v4
       with:
-        name: WindowCraft-PlayStore-AAB
-        path: app/build/outputs/bundle/release/app-release.aab
+        name: WindowCraft-PlayStore-Package
+        path: |
+          app/build/outputs/bundle/release/app-release.aab
+          upload_certificate.pem
